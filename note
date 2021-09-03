@@ -1,0 +1,93 @@
+#!/usr/bin/python3
+
+import argparse
+from pathlib import Path, PurePath
+import sys
+import os.path
+import os
+import itertools
+from subprocess import call
+from datetime import datetime
+
+NOTES_PATH = PurePath.joinpath(Path.home(), 'Drive/Notes')
+DISPLAY_LIMIT = 10
+
+def do_new(args):
+    cats = list(get_categories())
+    for i, v in enumerate(cats):
+        print('({}) {}'.format(i, str(v.relative_to(NOTES_PATH))))
+    cat_num = int(input('Creating new notes file, select category folder\n'))
+    
+    dest_dir = cats[cat_num]
+    desc = input('Enter note file name or space-separated tags\n')
+    
+    note_name = '{}-{}.md'.format(
+        datetime.today().strftime('%y%m%d'),
+        desc.replace(' ', '-'))
+    note_dest = PurePath.joinpath(dest_dir, note_name)
+    input('Creating new note with name {}, <Enter> to continue...'.format(
+        note_dest))
+    call_editor(note_dest)
+
+def do_list(args):
+    list_notes()
+
+def do_edit(args):
+    list_notes()
+    note_num = int(input('Select notes file for editing\n'))
+    
+    notes_files = get_notes(DISPLAY_LIMIT)
+    note = next(itertools.islice(notes_files, note_num, None))
+    call_editor(note)
+
+def list_notes():
+    notes_files = get_notes(DISPLAY_LIMIT)
+    print('Listing {} notes. Recently modified first'.format(DISPLAY_LIMIT))
+    for i, v in enumerate(notes_files):
+        print('({}) {}'.format(i, str(v.relative_to(NOTES_PATH))))
+
+def get_notes(limit):
+    notes_files = []
+    walk_notes_dir(NOTES_PATH, notes_files)
+
+    notes_files = reversed(sorted(notes_files, key=os.path.getmtime))
+    return itertools.islice(notes_files, limit)
+
+def get_categories():
+    cats = []
+    walk_notes_dir(NOTES_PATH, cats, False)
+
+    cat_dirs = reversed(sorted(cats))
+    return cats
+
+def call_editor(note_file):
+    editor = os.environ.get('EDITOR', 'vim')
+    call([editor, note_file])
+
+def walk_notes_dir(path_elem, dest, files=True):
+    if path_elem.is_dir():
+        for child in path_elem.iterdir():
+            if child.is_file() and child.suffix == '.md' and files:
+                dest.append(child)
+            elif child.is_dir():
+                if not files:
+                    dest.append(child)
+                walk_notes_dir(child, dest, files)
+
+COMMANDS = {
+    'new': do_new,
+    'list': do_list,
+    'edit': do_edit,
+}
+
+parser = argparse.ArgumentParser()
+parser.add_argument('command', help='one of: TODO')
+args = parser.parse_args()
+
+if args.command not in COMMANDS:
+    print('command \"{}\" is invalid'.format(args.command), file=sys.stderr)
+    sys.exit(1)
+
+# run the command
+COMMANDS[args.command](args)
+
