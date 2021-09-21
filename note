@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import argparse
+from argparse import RawTextHelpFormatter
 from pathlib import Path, PurePath
 import sys
 import os.path
@@ -40,6 +41,17 @@ def do_edit(args):
     note = next(itertools.islice(notes_files, note_num, None))
     call_editor(note)
 
+def do_list_categories(args):
+    categories = get_categories()
+    print('Listing {} categories in alphabetical order'.format(DISPLAY_LIMIT))
+    for i, v in enumerate(categories):
+        print('({}) {}'.format(i, str(v.relative_to(NOTES_PATH))))
+
+def do_new_category(args):
+    print('Enter path to new category in format: parent/new-category')
+    cat_dir = input()
+    new_category(cat_dir)
+
 def list_notes():
     notes_files = get_notes(DISPLAY_LIMIT)
     print('Listing {} notes. Recently modified first'.format(DISPLAY_LIMIT))
@@ -56,9 +68,19 @@ def get_notes(limit):
 def get_categories():
     cats = []
     walk_notes_dir(NOTES_PATH, cats, False)
+    cat_dirs = sorted(cats)
+    return cat_dirs
 
-    cat_dirs = reversed(sorted(cats))
-    return cats
+def new_category(cat_dir):
+    cat_path = PurePath.joinpath(NOTES_PATH, cat_dir)
+    if cat_path.exists():
+        print('Category {} already exists'.format(cat_dir))
+        return
+    try:
+        cat_path.mkdir()
+        print('Created category: {}'.format(cat_dir))
+    except FileNotFoundError:
+        print('Failed to create {}, make sure parent category exists'.format(cat_path))
 
 def call_editor(note_file):
     editor = os.environ.get('EDITOR', 'vim')
@@ -75,13 +97,22 @@ def walk_notes_dir(path_elem, dest, files=True):
                 walk_notes_dir(child, dest, files)
 
 COMMANDS = {
-    'new': do_new,
-    'list': do_list,
-    'edit': do_edit,
+    'new': (do_new, 'Create a new note'),
+    'list': (do_list, 'List existing notes'),
+    'edit': (do_edit, 'Edit an existing note'),
+    'lcat': (do_list_categories, 'List existing categories'),
+    'ncat': (do_new_category, 'Create a new category'),
 }
 
-parser = argparse.ArgumentParser()
-parser.add_argument('command', help='one of: {}'.format(','.join(COMMANDS.keys())))
+COMMANDS_HELP = 'one of: \n{}'.format(
+                    ',\n'.join(
+                        map(lambda key: '\t{}: \t{}'.format(key, COMMANDS[key][1]),
+                            COMMANDS)
+                    )
+                )
+
+parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
+parser.add_argument('command', help=COMMANDS_HELP)
 args = parser.parse_args()
 
 if args.command not in COMMANDS:
@@ -89,5 +120,5 @@ if args.command not in COMMANDS:
     sys.exit(1)
 
 # run the command
-COMMANDS[args.command](args)
+COMMANDS[args.command][0](args)
 
