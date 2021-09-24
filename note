@@ -83,7 +83,9 @@ def new_category(cat_dir):
         print('Failed to create {}, make sure parent category exists'.format(cat_path))
 
 def call_editor(note_file):
-    editor = os.environ.get('EDITOR', 'vim')
+    editor = os.environ.get('NOTE_EDITOR')
+    if editor is None:
+        editor = os.environ.get('EDITOR', 'vim')
     call([editor, note_file])
 
 def walk_notes_dir(path_elem, dest, files=True):
