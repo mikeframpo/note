@@ -10,7 +10,7 @@ import itertools
 from subprocess import call
 from datetime import datetime
 
-NOTES_PATH = PurePath.joinpath(Path.home(), 'Drive/Notes')
+NOTES_PATH = Path.joinpath(Path.home(), 'Drive/Notes')
 DISPLAY_LIMIT = 10
 
 def do_new(args):
@@ -85,6 +85,7 @@ def new_category(cat_dir):
 def call_editor(note_file):
     editor = os.environ.get('NOTE_EDITOR')
     if editor is None:
+        print('Warning: environment variable NOTE_EDITOR not set, defaulting to vim')
         editor = os.environ.get('EDITOR', 'vim')
     call([editor, note_file])
 
@@ -116,6 +117,9 @@ COMMANDS_HELP = 'one of: \n{}'.format(
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
 parser.add_argument('command', help=COMMANDS_HELP)
 args = parser.parse_args()
+
+if not NOTES_PATH.exists():
+    print('Warning: expected notes path {} does not exist'.format(NOTES_PATH))
 
 if args.command not in COMMANDS:
     print('command \"{}\" is invalid'.format(args.command), file=sys.stderr)
