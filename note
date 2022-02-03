@@ -31,13 +31,13 @@ def do_new(args):
     call_editor(note_dest)
 
 def do_list(args):
-    list_notes()
+    list_notes(args.pattern)
 
 def do_edit(args):
-    list_notes()
+    list_notes(args.pattern)
     note_num = int(input('Select notes file for editing\n'))
     
-    notes_files = get_notes(DISPLAY_LIMIT)
+    notes_files = get_notes(DISPLAY_LIMIT, args.pattern)
     note = next(itertools.islice(notes_files, note_num, None))
     call_editor(note)
 
@@ -52,15 +52,15 @@ def do_new_category(args):
     cat_dir = input()
     new_category(cat_dir)
 
-def list_notes():
-    notes_files = get_notes(DISPLAY_LIMIT)
+def list_notes(pattern=None):
+    notes_files = get_notes(DISPLAY_LIMIT, pattern)
     print('Listing {} notes. Recently modified first'.format(DISPLAY_LIMIT))
     for i, v in enumerate(notes_files):
         print('({}) {}'.format(i, str(v.relative_to(NOTES_PATH))))
 
-def get_notes(limit):
+def get_notes(limit, pattern=None):
     notes_files = []
-    walk_notes_dir(NOTES_PATH, notes_files)
+    walk_notes_dir(NOTES_PATH, notes_files, pattern=pattern)
 
     notes_files = reversed(sorted(notes_files, key=os.path.getmtime))
     return itertools.islice(notes_files, limit)
@@ -89,42 +89,51 @@ def call_editor(note_file):
         editor = os.environ.get('EDITOR', 'vim')
     call([editor, note_file])
 
-def walk_notes_dir(path_elem, dest, files=True):
+def walk_notes_dir(path_elem, dest, files=True, pattern=None):
     if path_elem.is_dir():
         for child in path_elem.iterdir():
-            if child.is_file() and child.suffix == '.md' and files:
+            if child.is_file() and child.suffix == '.md' \
+                and (pattern is None or pattern in str(child)) \
+                and files:
+
                 dest.append(child)
             elif child.is_dir():
                 if not files:
-                    dest.append(child)
-                walk_notes_dir(child, dest, files)
+                    if pattern is None or pattern in str(child):
+                        dest.append(child)
+                walk_notes_dir(child, dest, files, pattern)
 
 COMMANDS = {
-    'new': (do_new, 'Create a new note'),
-    'list': (do_list, 'List existing notes'),
-    'edit': (do_edit, 'Edit an existing note'),
-    'lcat': (do_list_categories, 'List existing categories'),
-    'ncat': (do_new_category, 'Create a new category'),
+    'new': do_new,
+    'list': do_list,
+    'edit': do_edit,
+    'lcat': do_list_categories,
+    'ncat': do_new_category,
 }
 
-COMMANDS_HELP = 'one of: \n{}'.format(
-                    ',\n'.join(
-                        map(lambda key: '\t{}: \t{}'.format(key, COMMANDS[key][1]),
-                            COMMANDS)
-                    )
-                )
-
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-parser.add_argument('command', help=COMMANDS_HELP)
+subp = parser.add_subparsers(dest='subparser')
+
+p_new = subp.add_parser('new', help='Create a new note')
+p_list = subp.add_parser('list', help='List existing notes')
+p_list.add_argument('pattern', nargs='?',
+    help='Pattern to match against note name or category or categories')
+
+p_edit = subp.add_parser('edit', help='Edit an existing note')
+p_edit.add_argument('pattern', nargs='?',
+    help='Pattern to match against note name or category or categories')
+p_lcat = subp.add_parser('lcat', help='List existing categories')
+p_ncat = subp.add_parser('ncat', help='Create a category')
 args = parser.parse_args()
 
 if not NOTES_PATH.exists():
     print('Warning: expected notes path {} does not exist'.format(NOTES_PATH))
 
-if args.command not in COMMANDS:
-    print('command \"{}\" is invalid'.format(args.command), file=sys.stderr)
+if args.subparser is None:
+    print('positional argument is required')
+    parser.print_help()
     sys.exit(1)
 
 # run the command
-COMMANDS[args.command][0](args)
+COMMANDS[args.subparser](args)
 
