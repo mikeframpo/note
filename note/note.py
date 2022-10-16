@@ -9,8 +9,13 @@ import os
 import itertools
 from subprocess import call
 from datetime import datetime
+import platform
 
-NOTES_PATH = Path.joinpath(Path.home(), 'Drive/Notes')
+if platform.system() == 'Windows':
+    NOTES_PATH = Path('m:/My Drive/Notes')
+else:
+    NOTES_PATH = Path.joinpath(Path.home(), 'Drive/Notes')
+
 DISPLAY_LIMIT = 10
 
 def do_new(args):
@@ -87,7 +92,7 @@ def call_editor(note_file):
     if editor is None:
         print('Warning: environment variable NOTE_EDITOR not set, defaulting to vim')
         editor = os.environ.get('EDITOR', 'vim')
-    call([editor, note_file])
+    call([editor, note_file], shell=True)
 
 def walk_notes_dir(path_elem, dest, files=True, pattern=None):
     if path_elem.is_dir():
@@ -111,29 +116,30 @@ COMMANDS = {
     'ncat': do_new_category,
 }
 
-parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-subp = parser.add_subparsers(dest='subparser')
+def _main():
+    parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
+    subp = parser.add_subparsers(dest='subparser')
 
-p_new = subp.add_parser('new', help='Create a new note')
-p_list = subp.add_parser('list', help='List existing notes')
-p_list.add_argument('pattern', nargs='?',
-    help='Pattern to match against note name or category or categories')
+    p_new = subp.add_parser('new', help='Create a new note')
+    p_list = subp.add_parser('list', help='List existing notes')
+    p_list.add_argument('pattern', nargs='?',
+        help='Pattern to match against note name or category or categories')
 
-p_edit = subp.add_parser('edit', help='Edit an existing note')
-p_edit.add_argument('pattern', nargs='?',
-    help='Pattern to match against note name or category or categories')
-p_lcat = subp.add_parser('lcat', help='List existing categories')
-p_ncat = subp.add_parser('ncat', help='Create a category')
-args = parser.parse_args()
+    p_edit = subp.add_parser('edit', help='Edit an existing note')
+    p_edit.add_argument('pattern', nargs='?',
+        help='Pattern to match against note name or category or categories')
+    p_lcat = subp.add_parser('lcat', help='List existing categories')
+    p_ncat = subp.add_parser('ncat', help='Create a category')
+    args = parser.parse_args()
 
-if not NOTES_PATH.exists():
-    print('Warning: expected notes path {} does not exist'.format(NOTES_PATH))
+    if not NOTES_PATH.exists():
+        print('Warning: expected notes path {} does not exist'.format(NOTES_PATH))
 
-if args.subparser is None:
-    print('positional argument is required')
-    parser.print_help()
-    sys.exit(1)
+    if args.subparser is None:
+        print('positional argument is required')
+        parser.print_help()
+        sys.exit(1)
 
-# run the command
-COMMANDS[args.subparser](args)
+    # run the command
+    COMMANDS[args.subparser](args)
 

@@ -1,0 +1,7 @@
+
+[project]
+name = "note"
+version = "0.0.1"
+
+[project.scripts]
+note = "note.__main__:__main__"
